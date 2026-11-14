@@ -3,55 +3,204 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport"
-        content="width=device-width, initial-scale=1">
-  <title>Amigo Secreto 2026</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Amigo Secreto 2026 🎄</title>
   <style>
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #f8eee9;
+      display: grid;
+      place-items: center;
+      padding: 20px;
       font-family: Arial, sans-serif;
-      text-align: center;
-      color: #254c39;
+      color: #fff;
+      background: linear-gradient(145deg, #092c22, #14513b);
     }
     main {
-      background: white;
-      padding: 35px 25px;
-      margin: 20px;
-      border-radius: 24px;
-      box-shadow: 0 8px 25px #00000015;
-      max-width: 400px;
+      width: 100%;
+      max-width: 430px;
+      padding: 30px 22px;
+      text-align: center;
+      border: 1px solid #c6a96a;
+      border-radius: 22px;
+      background: #103b2e;
+      box-shadow: 0 12px 35px #0005;
     }
-    h1 { font-size: 32px; }
-    p { line-height: 1.6; }
-    .regalo { font-size: 65px; }
-    .aviso {
-      background: #f8eee9;
-      padding: 15px;
-      border-radius: 12px;
-      margin-top: 20px;
+    h1 { color: #f5d68c; font-size: 30px; }
+    p { line-height: 1.5; }
+    input, button {
+      width: 100%;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 16px;
     }
+    input {
+      border: 1px solid #c6a96a;
+      margin: 12px 0;
+    }
+    button {
+      border: none;
+      background: #d5b56e;
+      color: #173628;
+      font-weight: bold;
+      margin-top: 16px;
+      cursor: pointer;
+    }
+    button:disabled { opacity: .6; }
+    #mensaje { margin-top: 18px; }
+    #resultado { margin-top: 20px; }
+    .amigo {
+      padding: 13px;
+      margin: 10px 0;
+      background: #205641;
+      border-radius: 10px;
+      font-weight: bold;
+    }
+    .cf-turnstile {
+      display: flex;
+      justify-content: center;
+      margin-top: 15px;
+    }
+    [hidden] { display: none !important; }
   </style>
+  <script
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+    async defer>
+  </script>
 </head>
 <body>
   <main>
-    <div class="regalo">🎁</div>
+    <div style="font-size:48px">🎄🎁🎄</div>
     <h1>Amigo Secreto 2026</h1>
-    <p>¡La magia de la Navidad comienza aquí!</p>
     <p>
-      Cada participante descubrirá
-      sus 3 amigos secretos.
+      ¡La magia de la Navidad ya comenzó!
+      Descubre a las tres personas que te tocaron.
     </p>
-    <div class="aviso">
-      🔐 Estamos preparando el sorteo.
-      Pronto podrás ingresar con
-      tu invitación privada.
-    </div>
-    <p>🎄 ¡Que comience la magia! 🎄</p>
+
+    <form id="formulario">
+      <input
+        id="codigo"
+        type="password"
+        placeholder="Tu código secreto"
+        autocomplete="off"
+        spellcheck="false"
+        required
+      >
+
+      <div
+        class="cf-turnstile"
+        data-sitekey="PEGA_AQUI_TU_SITE_KEY">
+      </div>
+
+      <button id="boton" type="submit">
+        🎁 Descubrir mis amigos secretos
+      </button>
+    </form>
+
+    <p id="mensaje" role="status"></p>
+
+    <section id="resultado" hidden>
+      <h2 id="saludo"></h2>
+      <p>Estas son las personas a quienes regalarás:</p>
+      <div id="amigos"></div>
+      <p>🤫 ¡Guarda el secreto hasta Navidad!</p>
+    </section>
   </main>
+
+  <script>
+    const endpoint =
+      "https://aclvhhomfgiuhcyfctgp.supabase.co/functions/v1/consultar-amigos";
+
+    const formulario = document.getElementById("formulario");
+    const codigoInput = document.getElementById("codigo");
+    const mensaje = document.getElementById("mensaje");
+    const resultado = document.getElementById("resultado");
+    const saludo = document.getElementById("saludo");
+    const amigos = document.getElementById("amigos");
+    const boton = document.getElementById("boton");
+
+    const codigoEnlace = new URLSearchParams(
+      window.location.search
+    ).get("codigo");
+
+    if (codigoEnlace && /^[0-9a-f]{48}$/.test(codigoEnlace)) {
+      codigoInput.value = codigoEnlace;
+      history.replaceState(null, "", window.location.pathname);
+    }
+
+    formulario.addEventListener("submit", async (evento) => {
+      evento.preventDefault();
+      mensaje.textContent = "";
+      resultado.hidden = true;
+      amigos.replaceChildren();
+
+      const codigo = codigoInput.value.trim().toLowerCase();
+      const turnstileToken =
+        window.turnstile?.getResponse() || "";
+
+      if (!/^[0-9a-f]{48}$/.test(codigo)) {
+        mensaje.textContent = "Revisa tu código secreto.";
+        return;
+      }
+
+      if (!turnstileToken) {
+        mensaje.textContent =
+          "Completa primero la verificación de seguridad.";
+        return;
+      }
+
+      boton.disabled = true;
+      mensaje.textContent = "Buscando tus amigos secretos...";
+
+      try {
+        const respuesta = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            codigo,
+            turnstileToken
+          })
+        });
+
+        const datos = await respuesta.json();
+
+        if (!respuesta.ok) {
+          throw new Error(
+            datos.error || "No fue posible consultar."
+          );
+        }
+
+        if (
+          !Array.isArray(datos.amigos) ||
+          datos.amigos.length !== 3
+        ) {
+          throw new Error("El resultado está incompleto.");
+        }
+
+        saludo.textContent = "¡Hola, " + datos.participante + "! 🎉";
+
+        datos.amigos.forEach((nombre, indice) => {
+          const tarjeta = document.createElement("div");
+          tarjeta.className = "amigo";
+          tarjeta.textContent = "🎁 " + (indice + 1) + ". " + nombre;
+          amigos.appendChild(tarjeta);
+        });
+
+        resultado.hidden = false;
+        mensaje.textContent = "";
+        formulario.hidden = true;
+
+      } catch (error) {
+        mensaje.textContent =
+          error.message || "Ocurrió un problema.";
+        window.turnstile?.reset();
+      } finally {
+        boton.disabled = false;
+      }
+    });
+  </script>
 </body>
 </html>
